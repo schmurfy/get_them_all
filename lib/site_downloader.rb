@@ -13,7 +13,7 @@ class SiteDownloader
     @history = []
     @options = args.delete(:options)
     @connections = {}
-    @download_queue = []
+    @actions_queue = EM::Queue.new
     
     # stats
     @skipped_files = 0
@@ -28,6 +28,24 @@ class SiteDownloader
     end
   end
   
+
+  def handle_action(action, n)
+    # puts "Worker [#{n}] called for action #{action.class} on #{action.url}"
+    
+    action.when_done do
+      # handle the next action in queue
+      @actions_queue.pop{|act| handle_action(act, n) } unless @actions_queue.empty?
+    end
+    
+    action.do_action()
+    action.errback do
+      # in cas of failure, try again
+      # debugger
+      @actions_queue.push(action)
+    end
+  end
+  
+  
   def start
     load_history()
 
@@ -39,7 +57,17 @@ class SiteDownloader
         end
       end
      
+      # recipe will euthnticate us if needed and start queuing the first
+      # actions
       yield() if block_given?
+      
+      # now that actions are queued, start handling them
+      # start each "worker"
+      4.times do |n|
+        @actions_queue.pop do |action|
+          handle_action(action, n)
+        end
+      end
     end
    
     save_history()
@@ -93,9 +121,11 @@ class SiteDownloader
       debug("#{method.upcase} #{url}")
     end
     
+    
     # find a connection for this host
     host_key = "#{url.host}:#{url.port}"
-    if @connections.has_key?(host_key) && !@connections[host_key].error?
+    if false
+    # if @connections.has_key?(host_key) && !@connections[host_key].error?
       http = @connections[host_key]
     else
       # debug("New connection to #{url.host}", "C")
@@ -126,89 +156,24 @@ class SiteDownloader
     
     req
   end
-  
-  # return a number between 0.1 and 1
-  def retry_time
-    0.1 * (rand(1000)+1)/100
-  end
 
   
-  def examine_url(url, level, destination_folder, referer = nil, &block)
-    
-    unless @history.include?(url)
-      req = open_url(url, "GET", nil, referer) do |req|
-        debug("    examining #{url}")
-        doc = Hpricot( req.content )
-        actions = examine_page(doc, level + 1)
-        actions.each do |action|
-          action.destination_folder ||= destination_folder
-          if action.is_a?(ExamineAction)
-            examine_url(action.url, action.level, action.destination_folder, url)
-          else
-            # picture has been downloaded, keep this information (@history)
-            r = download_url(action.url, action.level, action.destination_folder){ @history << url }
-          end
-        end
-      end
-      
-      req.timeout(5)
-      req.errback do
-         # on error retry
-         EM::add_timer(retry_time()){ examine_url(url, level, destination_folder, referer, &block) }
-         debug("Retrying examine...", "E")
-       end
-      
-    else
-      @skipped_files+= 1
-      debug("Skipping #{url}", "S")
-    end
-    
+  def examine_url(url, level, destination_folder, referer = nil)
+    @actions_queue.push ExamineAction.new(self,
+        :url => url,
+        :level => level,
+        :destination_folder => destination_folder,
+        :referer => referer
+      )
   end
   
-  def download_url(url, level, destination_folder, referer = nil, &block)
-    req = open_url(url, "GET", nil, referer) do |req|
-      debug("    downloading #{url}", "D")
-      destpath= get_file_destpath_from_url(url, destination_folder)
-
-      # create folders if non existant
-      begin
-        FileUtils.mkdir_p( File.dirname(destpath) )
-      rescue Errno::EINVAL
-        error("Invalid path: #{destpath}")
-      end
-      
-      # find an unused filename
-      while File.exists?(destpath)        
-        path, filename= File.dirname(destpath), File.basename(destpath).split(".")
-        filename= "#{filename[0]}_#{random_string(2)}.#{filename[1]}"
-        destpath= File.join(path, filename)
-        debug("Renamed as #{filename}", "R")
-      end
-      
-      # save in file
-      begin
-        open(destpath, "wb") do |bin_out|
-          bin_out.write( req.content )
-          @download_files+= 1
-        end
-      rescue Errno::EINVAL
-        error("Save error for url: '#{action.url}' ")
-        raise
-      end
-      
-      # add metadat (source url)
-      # open(destpath + ":source_url", "w") do |f|
-      #   f.puts File.join(@base_url, action.parent_url)
-      # end
-    end
-    
-    req.callback{ block.call(req) }
-    req.timeout(5)
-    req.errback do
-      # on error retry
-      EM::add_timer(retry_time()){ download_url(url, level, destination_folder, referer, &block) }
-      debug("Retrying download...", "T")
-    end
+  def download_url(url, level, destination_folder, referer = nil)
+    @actions_queue.push DownloadAction.new(self,
+        :url => url,
+        :level => level,
+        :destination_folder => destination_folder,
+        :referer => referer
+      )
   end
   
   
@@ -232,12 +197,7 @@ class SiteDownloader
     end
   end
 
-  def random_string(len=5)
-    ret= ""
-    chars= ("0".."9").to_a + ("a".."z").to_a
-    1.upto(len) { |i| ret<< chars[rand(chars.size-1)] }
-    ret
-  end
+
   
   
   

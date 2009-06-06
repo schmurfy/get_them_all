@@ -15,3 +15,13 @@ class SiteDownloader
     end
   end
 end
+
+class Action
+  def debug(*args)
+    @downloader.debug(*args)
+  end
+  
+  def error(*args)
+    @downloader.error(*args)
+  end
+end
