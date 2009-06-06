@@ -9,6 +9,7 @@ gem "eventmachine", ">= 0.12.6"; require "eventmachine"
 gem "activesupport", ">= 2.3.2"; require "active_support"
 
 require File.dirname(__FILE__) + '/lib/site_downloader.rb'
+require File.dirname(__FILE__) + '/lib/worker.rb'
 require File.dirname(__FILE__) + '/lib/action.rb'
 require File.dirname(__FILE__) + '/lib/extensions.rb'
 require File.dirname(__FILE__) + '/lib/http.rb'

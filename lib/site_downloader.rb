@@ -1,6 +1,12 @@
 
 class SiteDownloader
   
+  class_inheritable_accessor :examiners_count, :downloaders_count
+  
+  self.examiners_count = 2
+  self.downloaders_count = 1
+  
+  
   def initialize(args)
     
     @cookies = {}
@@ -13,7 +19,8 @@ class SiteDownloader
     @history = []
     @options = args.delete(:options)
     @connections = {}
-    @actions_queue = EM::Queue.new
+    @examine_queue = EM::Queue.new
+    @download_queue = EM::Queue.new
     
     # stats
     @skipped_files = 0
@@ -28,23 +35,6 @@ class SiteDownloader
     end
   end
   
-
-  def handle_action(action, n)
-    # puts "Worker [#{n}] called for action #{action.class} on #{action.url}"
-    
-    action.when_done do
-      # handle the next action in queue
-      @actions_queue.pop{|act| handle_action(act, n) } unless @actions_queue.empty?
-    end
-    
-    action.do_action()
-    action.errback do
-      # in cas of failure, try again
-      # debugger
-      @actions_queue.push(action)
-    end
-  end
-  
   
   def start
     load_history()
@@ -56,18 +46,23 @@ class SiteDownloader
           EM::stop_event_loop()
         end
       end
+      
+      EM::error_handler{|err| error("#{err.class}: #{err.message}") }
      
-      # recipe will euthnticate us if needed and start queuing the first
+      # recipe will authnticate us if needed and start queuing the first
       # actions
       yield() if block_given?
       
       # now that actions are queued, start handling them
       # start each "worker"
-      4.times do |n|
-        @actions_queue.pop do |action|
-          handle_action(action, n)
-        end
+      1.upto(self.class.examiners_count) do |n|
+        Worker.new("ex#{n}", self, @examine_queue)
       end
+      
+      1.upto(self.class.downloaders_count) do |n|
+        Worker.new("dl#{n}", self, @download_queue)
+      end
+
     end
    
     save_history()
@@ -159,7 +154,7 @@ class SiteDownloader
 
   
   def examine_url(url, level, destination_folder, referer = nil)
-    @actions_queue.push ExamineAction.new(self,
+    @examine_queue.push ExamineAction.new(self,
         :url => url,
         :level => level,
         :destination_folder => destination_folder,
@@ -168,7 +163,7 @@ class SiteDownloader
   end
   
   def download_url(url, level, destination_folder, referer = nil)
-    @actions_queue.push DownloadAction.new(self,
+    @download_queue.push DownloadAction.new(self,
         :url => url,
         :level => level,
         :destination_folder => destination_folder,

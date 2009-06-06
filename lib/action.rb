@@ -41,7 +41,9 @@ class Action
   def queue_action(action)
     action.parent_url = @url
     action.destination_folder ||= @destination_folder
-    @downloader.instance_variable_get("@actions_queue").push(action)
+    
+    queue = action.is_a?(ExamineAction) ? "@examine_queue" : "@download_queue"
+    @downloader.instance_variable_get(queue).push(action)
   end
   
   # return a number between 0.1 and 1
