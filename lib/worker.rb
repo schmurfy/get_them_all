@@ -24,12 +24,12 @@ class Worker
       @queue.pop{|act| handle_action(act) }
     end
     
-    action.do_action()
     action.errback do
-      # in cas of failure, try again later
-      # debugger
-      @queue.push(action)
+      # in case of failure, try again later
+      EM::add_timer(50){ @queue.push(action) }
     end
+    
+    action.do_action()
   end
   
 end

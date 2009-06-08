@@ -14,6 +14,7 @@ require File.dirname(__FILE__) + '/lib/action.rb'
 require File.dirname(__FILE__) + '/lib/extensions.rb'
 require File.dirname(__FILE__) + '/lib/http.rb'
 require File.dirname(__FILE__) + '/lib/log.rb'
+require File.dirname(__FILE__) + '/lib/tree.rb'
 
 require "ruby-debug"
 Debugger.start
@@ -33,6 +34,10 @@ ARGV.options do |opts|
   
   opts.on("-c", "--config=PATH", String, "Which config to run") do |config_path|
     config_path = File.join(File.dirname(__FILE__), 'sites', "#{config_path}.rb")
+  end
+  
+  opts.on("-g", "--graph", "Graph the website") do |graph|
+    options[:graph] = graph
   end
 end.parse!
 

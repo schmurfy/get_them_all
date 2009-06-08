@@ -4,10 +4,11 @@ class Action
   
   include EM::Deferrable
   
-  def initialize(downloader, h)
+  def initialize(downloader, h, params = {})
     @downloader = downloader
     
     @level= 0
+    @params= params
     @destination_folder= nil
     @when_done = EM::DefaultDeferrable.new
     
@@ -15,6 +16,14 @@ class Action
       fail("unknown properties #{key} !") unless respond_to?("#{key}=")
       send("#{key}=", val) unless val.nil?
     end
+  end
+  
+  def inspect
+    "{#{self.class}[#{level}] #{url} }"
+  end
+  
+  def uri
+    URI.parse(@url)
   end
   
   # call this block when the action is done whether it was a success or failure
@@ -59,12 +68,16 @@ class ExamineAction < Action
   def do_action()
     unless history.include?(@url)
       req = @downloader.open_url(@url, "GET", nil, @referer) do |req|
-        debug("    examining #{@url}", '.')
+        debug("    examining[#{@level}] #{@url}", '.')
         doc = Hpricot( req.content )
-        actions = @downloader.examine_page(doc, @level + 1)
+        actions = @downloader.examine_page(doc, @level, self)
         actions.each do |action|
+          action.level = @level + 1
+          action.params = @params.merge(action.params)
           queue_action(action)
         end
+        
+        @downloader.add_to_graph("E[ret:#{actions.size}]", @url, @parent_url)
       end
       
       req.timeout(5)
@@ -112,6 +125,8 @@ class DownloadAction < Action
       set_deferred_status(:succeeded)
       @when_done.set_deferred_status(:succeeded)
       
+      @downloader.add_to_graph("D", @url, @parent_url)
+      
       # add metadata (source url)
       # open(destpath + ":source_url", "w") do |f|
       #   f.puts File.join(@base_url, action.parent_url)
@@ -144,7 +159,7 @@ private
   end
   
   def compute_filename
-    destpath= @downloader.get_file_destpath_from_url(@url, @destination_folder)
+    destpath= @downloader.get_file_destpath_from_action(self)
     
     # create folders if non existant
     begin

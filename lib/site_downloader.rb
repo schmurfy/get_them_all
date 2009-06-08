@@ -22,6 +22,8 @@ class SiteDownloader
     @examine_queue = EM::Queue.new
     @download_queue = EM::Queue.new
     
+    @graph = TreeNode.new("", @base_url)
+    
     # stats
     @skipped_files = 0
     @download_files = 0
@@ -47,7 +49,10 @@ class SiteDownloader
         end
       end
       
-      EM::error_handler{|err| error("#{err.class}: #{err.message}") }
+      EM::error_handler do |err|
+        error("#{err.class}: #{err.message}")
+        debug(err.backtrace.join("\n"))
+      end
      
       # recipe will authnticate us if needed and start queuing the first
       # actions
@@ -67,6 +72,11 @@ class SiteDownloader
    
     save_history()
     
+    if build_graph?
+      @graph.dump_to_file('/tmp/tree.dot')
+      %x{neato -Tpng /tmp/tree.dot -o tree.png}
+    end
+    
     puts ""
     puts "Downloaded #{@download_files} files"
     puts "Skipped: #{@skipped_files}"
@@ -76,6 +86,10 @@ class SiteDownloader
   
   def verbose?
     @options[:verbose]
+  end
+  
+  def build_graph?
+    @options[:graph]
   end
   
   def assert(cond, msg = "")
@@ -95,7 +109,6 @@ class SiteDownloader
     host2_parts= host2_parts[-size..-1] if host2_parts.size > size
 
     ret = host1_parts.join(".") == host2_parts.join(".")
-    debugger if ret == false
 
     return ret
   end
@@ -108,6 +121,13 @@ class SiteDownloader
       url = URI.parse(url)
     end
     
+    url_path = url.path
+    
+    # get queries with params
+    if method == "GET" && url.query
+      url_path << "?#{url.query}"
+    end
+
     external = !same_domain?(@parsed_base_url.host, url.host)
     
     if external
@@ -128,14 +148,14 @@ class SiteDownloader
       @connections[host_key] = http
     end
     
-    req = http.request(:verb => method.upcase, :uri => url.path, :cookies => @cookies, :body => params, :referer => referer)
+    req = http.request(:verb => method.upcase, :uri => url_path, :cookies => @cookies, :body => params, :referer => referer)
     # req.timeout(10)
     # req.errback do
     #   error("error while opening #{url} :(")
     # end
     
     req.callback do
-      if [200].include? req.status
+      if [200].include?(req.status)
         # handle cookies
         unless external
           req.added_cookies.each{|key,val| @cookies[key] = val }
@@ -145,11 +165,24 @@ class SiteDownloader
         # debug("page loaded succesfully: #{url}")
         block.call(req)
       else
-        error("failed to get url #{url.path} , status: #{req.status}")
+        add_to_graph(req.status, url, referer)
+        error("failed to get url #{url} , status: #{req.status}")
       end
     end
     
     req
+  end
+  
+  def add_to_graph(prefix, url, referer)
+    if build_graph?
+      if referer.nil?
+        @graph.add_child(prefix, url)
+      else
+        # find referer
+        parent = @graph.find_node(referer) or fail("node not found: #{referer}")
+        parent.add_child(prefix, url)
+      end
+    end
   end
 
   
@@ -201,7 +234,8 @@ class SiteDownloader
     raise "Need to implement examine_page in #{self.class}"
   end
   
-  def get_file_destpath_from_url(url, destination_folder)
-    File.join(@base_path, destination_folder, url)
+  def get_file_destpath_from_action(action)
+    url_folder = action.uri.path
+    File.join(@base_path, action.destination_folder, url_folder)
   end
 end
