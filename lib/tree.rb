@@ -43,5 +43,37 @@ class TreeNode
   end
   protected :dump_node
 
+
+
+
+  def dump_to_dot_file(path)
+    File.open(path, 'w') do |f|
+      f.write(<<-EOF)
+digraph toto {
+  node [shape=box];
+  #{dump_node_dot()}
+}      
+      EOF
+    end
+  end
+
+  def dump_node_dot(prefix = nil)
+    # ret = "#{level-1} #{'  ' * level}#{@prefix} #{@text}\n"
+    if prefix.nil?
+      prefix = "\"#{@text}\""
+    else
+      prefix = " #{prefix} -> \"#{@text}\""
+    end
+
+    ret = [prefix]
+
+    @children.each do |node|
+      ret << node.dump_node("\"#{@text}\"")
+    end
+
+    ret.join("\n")
+  end
+  protected :dump_node_dot
+
 end
 
