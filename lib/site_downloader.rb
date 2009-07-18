@@ -35,11 +35,20 @@ class SiteDownloader
     start do
       yield() if block_given?
     end
+    
+    unless verbose?
+      # initialize terminal
+      lines = self.class.examiners_count + self.class.downloaders_count
+      lines.times{ print "\n" }
+      Cursor::up(lines)
+    end
   end
   
   
   def start
     load_history()
+    
+    @fiber_pool = NB::Pool::FiberPool.new(20)
 
     EM::run do
       EM::add_periodic_timer(5) do
@@ -51,7 +60,9 @@ class SiteDownloader
       
       EM::error_handler do |err|
         error("#{err.class}: #{err.message}")
-        debug(err.backtrace.join("\n"))
+        err.backtrace.each do |line|
+          error(line)
+        end
       end
      
       # recipe will authnticate us if needed and start queuing the first
@@ -73,8 +84,8 @@ class SiteDownloader
     save_history()
     
     if build_graph?
-      @graph.dump_to_file('/tmp/tree.dot')
-      %x{neato -Tpng /tmp/tree.dot -o tree.png}
+      @graph.dump_to_file('/tmp/tree.txt')
+      # %x{neato -Tpng /tmp/tree.dot -o tree.png}
     end
     
     puts ""
@@ -113,14 +124,11 @@ class SiteDownloader
     return ret
   end
   
-  def open_url(url, method = "GET", params = nil, referer = nil, &block)
-
-    if url[0...4] != "http" # partial url
-      url = URI.join(@base_url, url)
-    else
-      url = URI.parse(url)
-    end
+  def open_url(url, method = "GET", params = nil, referer = nil)
     
+    deferrable = EM::DefaultDeferrable.new
+
+    url = (url[0...4] == "http") ? URI.parse(url) : URI.join(@base_url, url)
     url_path = url.path
     
     # get queries with params
@@ -163,14 +171,18 @@ class SiteDownloader
         end
         
         # debug("page loaded succesfully: #{url}")
-        block.call(req)
+        deferrable.set_deferred_status(:succeeded, req)
+        yield(req) if block_given?
       else
-        add_to_graph(req.status, url, referer)
-        error("failed to get url #{url} , status: #{req.status}")
+        deferrable.set_deferred_status(:failed, req.status)
       end
     end
     
-    req
+    req.errback do
+      deferrable.set_deferred_status(:failed, -1)
+    end
+    
+    deferrable
   end
   
   def add_to_graph(prefix, url, referer)

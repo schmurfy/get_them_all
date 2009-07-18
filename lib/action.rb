@@ -67,8 +67,9 @@ class ExamineAction < Action
   
   def do_action()
     unless history.include?(@url)
-      req = @downloader.open_url(@url, "GET", nil, @referer) do |req|
-        debug("    examining[#{@level}] #{@url}", '.')
+      req = @downloader.open_url(@url, "GET", nil, @referer)
+      req.callback do |req|
+        # debug("    examining[#{@level}] #{@url}", '.')
         doc = Hpricot( req.content )
         actions = @downloader.examine_page(doc, @level, self)
         actions.each do |action|
@@ -78,17 +79,18 @@ class ExamineAction < Action
         end
         
         @downloader.add_to_graph("E[ret:#{actions.size}]", @url, @parent_url)
+        
+        set_deferred_status(:succeeded)
+        @when_done.set_deferred_status(:succeeded)
       end
       
       req.timeout(5)
       
-      req.errback do
+      req.errback do |*args|
+        status = (args.size == 1) ? args.first : 0
+        @downloader.add_to_graph(status, @url, @referer)
+        
         set_deferred_status(:failed)
-        @when_done.set_deferred_status(:succeeded)
-      end
-      
-      req.callback do
-        set_deferred_status(:succeeded)
         @when_done.set_deferred_status(:succeeded)
       end
       
@@ -104,7 +106,8 @@ end
 class DownloadAction < Action
   
   def do_action()
-    req = @downloader.open_url(@url, "GET", nil, @referer) do |req|
+    req = @downloader.open_url(@url, "GET", nil, @referer)
+    req.callback do |req|
       debug("    downloading #{@url}", "D")
       
       destpath = compute_filename()
@@ -135,7 +138,8 @@ class DownloadAction < Action
     
     req.timeout(5)
     
-    req.errback do
+    req.errback do |*args|
+      status = (args.size == 1) ? args.first : 0
       
       # remove file if created
       File.delete( compute_filename() ) if File.exist?(compute_filename())
