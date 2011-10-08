@@ -20,13 +20,18 @@ class Worker
     # puts "Worker [#{@name}] called for action #{action.class} on #{action.url}"
     
     action.when_done do
+      # puts "Worker [#{@name}] completed its job"
       # handle the next action in queue
-      @queue.pop{|act| handle_action(act) }
+      EM::next_tick do
+        @queue.pop{|act| handle_action(act) }
+      end
     end
     
     action.errback do
-      # in case of failure, try again later
-      EM::add_timer(50){ @queue.push(action) }
+      # in case of failure, try again later (with slightly lower priority)
+      EM::add_timer(50) do
+        @queue.push(action, [action.level - 1, 0].max)
+      end
     end
     
     action.do_action()

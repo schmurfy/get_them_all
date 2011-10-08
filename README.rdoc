@@ -1,0 +1,72 @@
+= What is it ?
+
+Get Them All is my personal try at building a versatile and powerful web downloader, its goal is pretty simple:
+download all the targets and keep up to date with new content by remembering what was downloaded.
+
+It should be able to download ay file type and try as much as possible to not make any assumptions on how the
+targeted website is built.
+
+= Why ?
+
+I simply never found any tool fulfilling my needs so I made mine ;)
+
+
+= How ?
+
+EventMachine is used to power the core, hpricot is used to parse the html
+
+
+= State
+
+The application is already ready for my needs and may be for someone else.
+Currently all the connections errors may not be correctly handled especially if
+the web server really has trouble keeping connections alive to serve the clients
+(like for the example above).
+
+
+= Usage
+
+The application looks for recipes in the sites folder, a simple recipe looks like:
+(I took a useless ad loaded website)
+
+#
+# example recipe
+#
+class WallpapersDownloader < SiteDownloader
+
+  def initialize(args)
+    args.merge!(:base_url => "http://wallpapers.diq.ru/", :folder_name => "walpapers_ru")
+    super(args) do
+      examine_url("/wp/30.html", -1, "images")
+    end
+  end
+
+  def examine_page(doc, level)
+    ret= []
+    case level
+      
+      when 0 # first level: page with all pictures
+        doc.search('td[@valign="top"][@height="102"] a') do |el|
+          unless el.search('img[@width="128"][@height="96"][@border="0"]').empty?
+            ret << ExamineAction.new(self, :url => el.attributes['href'])
+          end
+        end
+
+        assert(ret.size <= 15, "too many entries: #{ret.size}")
+        assert(ret.size > 0, "cannot be empty: #{ret.size}")
+      
+      when 1 # second level: the picture page
+        
+        doc.search('td[@valign="top"][@height="390"] img[@width="512"][@height="384"]') do |el|
+          ret << DownloadAction.new(self, :url => el.attributes['src'])
+        end
+        
+        debugger if ret.empty?
+
+        assert(ret.size == 1, "should contain one picture")
+    end
+      
+    ret
+  end
+    
+end
