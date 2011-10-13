@@ -51,7 +51,7 @@ class DropboxStorage < Storage
   # 
   def working?
     s = @queue.status['dropbox_upload']
-    (s[:backlog] > 0) && (s[:busy] > 0)
+    (s[:backlog] > 0) || (s[:busy] > 0)
   end
   
   ##

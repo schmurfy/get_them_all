@@ -5,7 +5,6 @@ class Storage
   class ReadError < StorageError; end
   
   def initialize(options = {})
-    p options
     @root = options.delete(:root)
     @folder_name = options.delete(:folder_name)
     raise "missing required option: folder_name" unless @folder_name

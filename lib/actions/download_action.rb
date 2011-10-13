@@ -6,42 +6,46 @@ class DownloadAction < Action
   def do_action()
     notify('action.download.started', self)
     
-    req = @downloader.open_url(@url, "GET", nil, @referer)
-    req.callback do |req|
+    if already_visited?(@url)
+      notify('action.download.skipped', self)
+      set_deferred_status(:succeeded)
+    else
+    
+      req = @downloader.open_url(@url, "GET", nil, @referer)
+      req.callback do |req|
       
-      destpath = compute_filename()
-      download = @storage.write(destpath, req.response)
+        destpath = compute_filename()
+        download = @storage.write(destpath, req.response)
       
-      download.callback do      
-        add_to_history()
-        set_deferred_status(:succeeded)
-        @when_done.set_deferred_status(:succeeded)
+        download.callback do      
+          add_to_history()
+          set_deferred_status(:succeeded)
       
-        notify('action.download.success', self, destpath)
+          notify('action.download.success', self, destpath)
+        end
+      
+        download.errback do
+          notify('action.download.failure', self)
+        end
+      
+        # add metadata (source url)
+        # open(destpath + ":source_url", "w") do |f|
+        #   f.puts File.join(@base_url, action.parent_url)
+        # end
       end
+    
+      req.timeout(5)
+    
+      req.errback do |*args|
+        status = (args.size == 1) ? args.first : 0
       
-      download.errback do
+        # remove file if created
+        File.delete( compute_filename() ) if File.exist?(compute_filename())
+      
         notify('action.download.failure', self)
+      
+        set_deferred_status(:failed)
       end
-      
-      # add metadata (source url)
-      # open(destpath + ":source_url", "w") do |f|
-      #   f.puts File.join(@base_url, action.parent_url)
-      # end
-    end
-    
-    req.timeout(5)
-    
-    req.errback do |*args|
-      status = (args.size == 1) ? args.first : 0
-      
-      # remove file if created
-      File.delete( compute_filename() ) if File.exist?(compute_filename())
-      
-      notify('action.download.failure', self)
-      
-      set_deferred_status(:failed)
-      @when_done.set_deferred_status(:succeeded)
     end
     
   end
@@ -55,7 +59,11 @@ private
   end
   
   def add_to_history()
-    @downloader.instance_variable_get("@history").push(@parent_url)
+    if @downloader.class.history_tracking == :default
+      @downloader.history.push(@parent_url)
+    else
+      @downloader.history.push(@url)
+    end
   end
   
   def compute_filename

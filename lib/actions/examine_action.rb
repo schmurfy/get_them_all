@@ -9,20 +9,18 @@ class ExamineAction < Action
   
   def action_succeeded()
     set_deferred_status(:succeeded)
-    @when_done.set_deferred_status(:succeeded)
   end
   
   def action_failed(status)
     notify('action.examine.failure', self, status)
     set_deferred_status(:failed)
-    @when_done.set_deferred_status(:succeeded)
   end
   
   
   def do_action()
     notify('action.examine.started', self)
     
-    if history.include?(@url)
+    if already_visited?(@url)
       notify('action.examine.skipped', self)
       action_succeeded()
       

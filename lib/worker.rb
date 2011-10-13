@@ -14,24 +14,26 @@ class Worker
     
   end
   
+  ##
+  # Take the next action in queue
+  # 
+  def take_next_job
+    EM::next_tick do
+      @queue.pop{|act| handle_action(act) }
+    end
+  end
   
   
   def handle_action(action)
-    # puts "Worker [#{@name}] called for action #{action.class} on #{action.url}"
-    
-    action.when_done do
-      # puts "Worker [#{@name}] completed its job"
-      # handle the next action in queue
-      EM::next_tick do
-        @queue.pop{|act| handle_action(act) }
-      end
-    end
-    
+    action.callback( &method(:take_next_job) )
     action.errback do
       # in case of failure, try again later (with slightly lower priority)
       EM::add_timer(50) do
         @queue.push(action, [action.level - 1, 0].max)
       end
+      
+      # and take the next job
+      take_next_job()
     end
     
     action.do_action()

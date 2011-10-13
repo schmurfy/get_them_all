@@ -12,16 +12,28 @@ class SiteDownloader
   class_attribute :examiners_count, :downloaders_count
   class_attribute :config
   
+  ##
+  # Determine what will be stored in the history file,
+  # the default is to store the last url before the download
+  # so we can ignore it sooner next time.
+  # 
+  # The other mode is :download, in this mode the download
+  # url itself will be stored, it is meant for special cases as
+  # the default should work better most of the time.
+  # 
+  class_attribute :history_tracking
+  
   self.examiners_count = 1
   self.downloaders_count = 1
   
-  attr_reader :base_url, :storage
+  self.history_tracking = :default
+  
+  attr_reader :base_url, :storage, :history
   
   def initialize(args)
     
     # @storage = args.delete(:storage)
     # raise "storage required" unless @storage
-    
     
     @cookies = {}
     @history = []
@@ -78,12 +90,12 @@ class SiteDownloader
     notify('downloader.started', self)
     
     EM::run do
-      # EM::add_periodic_timer(5) do
-      #   if (EM::connection_count() == 0) && !@storage.working?
-      #     debug("no connections, exiting")
-      #     EM::stop_event_loop()
-      #   end
-      # end
+      EM::add_periodic_timer(5) do
+        if (EM::connection_count() == 0) && !@storage.working?
+          debug("no connections, exiting")
+          EM::stop_event_loop()
+        end
+      end
       
       EM::error_handler do |err|
         if err.is_a?(AssertionFailed)
@@ -158,7 +170,7 @@ class SiteDownloader
   # load already downloaded pictures from disk
   def load_history
     if @storage.exist?(HISTORY_FILE_PATH)
-      @history = @storage.read(HISTORY_FILE_PATH).split('\n')
+      @history = @storage.read(HISTORY_FILE_PATH).split("\n")
     end
   end
   

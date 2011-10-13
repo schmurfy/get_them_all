@@ -15,7 +15,6 @@ class Action
     @level= 0
     @params= h.delete(:params)
     @destination_folder= nil
-    @when_done = EM::DefaultDeferrable.new
     
     h.each do |key, val|
       raise ("unknown properties #{key} !") unless respond_to?("#{key}=")
@@ -31,17 +30,13 @@ class Action
     URI.parse(@url)
   end
   
-  # call this block when the action is done whether it was a success or failure
-  def when_done(&block)
-    @when_done.callback(&block)
+  
+  def already_visited?(url)
+    @downloader.history.include?(url)
   end
   
   
-  # internals
-  def history
-    @downloader.instance_variable_get("@history")
-  end
-      
+  # internals      
   def queue_action(action)
     action.parent_url = @url
     action.destination_folder ||= @destination_folder
