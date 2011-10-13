@@ -1,4 +1,4 @@
-require 'dead_simple_config'
+require 'dead_simple_conf'
 
 # logger:
 #   level: info
@@ -16,7 +16,7 @@ module ConfigLoader
   end
   
   class StorageBlock < DeadSimpleConf::ConfigBlock
-    attr_accessor :location, :path
+    attr_accessor :location, :params
   end
   
   class MainBlock < DeadSimpleConf::ConfigBlock
@@ -29,3 +29,8 @@ module ConfigLoader
     MainBlock.new(yaml_data)
   end
 end
+
+
+SiteDownloader.config = ConfigLoader.load(
+    File.expand_path('../../config.yml', __FILE__)
+  )

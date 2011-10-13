@@ -25,6 +25,11 @@ Dir.chdir(File.dirname(__FILE__)) do
   require './notifier'
   require './javascript_loader'
   
+  # Storage
+  require './storage'
+  require './storage/file_storage'
+  require './storage/dropbox_storage'
+  
   # extensions
   require './extension'
   require './extensions/graph_builder'
@@ -32,6 +37,7 @@ Dir.chdir(File.dirname(__FILE__)) do
   
   # main files
   require './site_downloader'
+  require './config_loader'
   require './worker'
   require './action'
   require './actions/examine_action'

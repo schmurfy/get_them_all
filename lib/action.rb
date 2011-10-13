@@ -10,6 +10,8 @@ class Action
   def initialize(downloader, h, params = {})
     @downloader = downloader
     
+    @storage = @downloader.storage
+    
     @level= 0
     @params= h.delete(:params)
     @destination_folder= nil

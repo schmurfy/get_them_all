@@ -10,6 +10,8 @@ gem 'i18n'
 gem 'activesupport',      '~> 3.1.0'
 gem 'dead_simple_conf',   '~> 1.0.0'
 gem 'therubyracer',       '~> 0.9.8'
+gem 'dropbox'
+gem 'girl_friday'
 
 
 group(:test) do

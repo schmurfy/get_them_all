@@ -10,22 +10,19 @@ class DownloadAction < Action
     req.callback do |req|
       
       destpath = compute_filename()
+      download = @storage.write(destpath, req.response)
       
-      # save in file
-      begin
-        open(destpath, "wb") do |bin_out|
-          bin_out.write( req.response )
-        end
-      rescue Errno::EINVAL
-        error("Save error for url: '#{action.url}' ")
-        raise
+      download.callback do      
+        add_to_history()
+        set_deferred_status(:succeeded)
+        @when_done.set_deferred_status(:succeeded)
+      
+        notify('action.download.success', self, destpath)
       end
       
-      add_to_history()
-      set_deferred_status(:succeeded)
-      @when_done.set_deferred_status(:succeeded)
-      
-      notify('action.download.success', self, destpath)
+      download.errback do
+        notify('action.download.failure', self)
+      end
       
       # add metadata (source url)
       # open(destpath + ":source_url", "w") do |f|
@@ -52,7 +49,7 @@ class DownloadAction < Action
 private
   def random_string(len=5)
     ret= ""
-    chars= ("0".."9").to_a + ("a".."z").to_a
+    chars= ("a".."z").to_a
     1.upto(len) { |i| ret<< chars[rand(chars.size-1)] }
     ret
   end
@@ -63,16 +60,9 @@ private
   
   def compute_filename
     destpath= @downloader.get_file_destpath_from_action(self)
-    
-    # create folders if non existant
-    begin
-      FileUtils.mkdir_p( File.dirname(destpath) )
-    rescue Errno::EINVAL
-      error("Invalid path: #{destpath}")
-    end
-    
+        
     # find an unused filename
-    while File.exists?(destpath)        
+    while @storage.exist?(destpath)        
       path, filename= File.dirname(destpath), File.basename(destpath).split(".")
       filename= "#{filename[0]}_#{random_string(2)}.#{filename[1]}"
       destpath= File.join(path, filename)

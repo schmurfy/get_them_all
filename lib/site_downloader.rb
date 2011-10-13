@@ -1,5 +1,6 @@
 
 require 'addressable/uri'
+require 'active_support/hash_with_indifferent_access'
 
 require 'em-http-request'
 require 'em-priority-queue'
@@ -9,11 +10,12 @@ class SiteDownloader
   include Notifier
   
   class_attribute :examiners_count, :downloaders_count
+  class_attribute :config
   
   self.examiners_count = 1
   self.downloaders_count = 1
   
-  attr_reader :base_url
+  attr_reader :base_url, :storage
   
   def initialize(args)
     
@@ -22,25 +24,39 @@ class SiteDownloader
     
     
     @cookies = {}
-    @base_url= args.delete(:base_url)
-    @parsed_base_url = URI.parse(@base_url)
-    
-    @folder_name= args.delete(:folder_name)
-    @base_path = File.join('/Users/Shared/Pics', @folder_name)
-
     @history = []
-    @options = args.delete(:options) || {}
     @connections = {}
     @examine_queue = EM::PriorityQueue.new
     @download_queue = EM::PriorityQueue.new
+    
+    
+    @base_url= args.delete(:base_url)
+    @folder_name= args.delete(:folder_name)
+    @options = args.delete(:options) || {}
+    
+    storage_class = "#{SiteDownloader.config.storage.location.camelize}Storage"
+    raise "unknown storage: #{storage_class}" unless defined?(storage_class)
+    
+    storage_class = Object.const_get(storage_class)
+    
+    storage_class = storage_class
+    storage_options = ActiveSupport::HashWithIndifferentAccess.new( SiteDownloader.config.storage.params )
+    # storage_options = args.delete(:storage_options) || {
+    #     :root => File.join('/Users/Shared/Pics', @folder_name)
+    #   }
+      
+    @storage = storage_class.new(storage_options.merge(:folder_name => @folder_name))
+    
+    @parsed_base_url = Addressable::URI.parse(@base_url)
+    
+    unless args.empty?
+      raise "unknown parameters: #{args.inpsect}"
+    end
     
     @extensions = [
         GraphBuilder.new,
         ActionLogger.new
       ]
-    
-    # create base folder
-    FileUtils.mkdir_p( @base_path )
     
     # start download
     start do
@@ -62,12 +78,12 @@ class SiteDownloader
     notify('downloader.started', self)
     
     EM::run do
-      EM::add_periodic_timer(5) do
-        if EM::connection_count() == 0
-          debug("no connections, exiting")
-          EM::stop_event_loop()
-        end
-      end
+      # EM::add_periodic_timer(5) do
+      #   if (EM::connection_count() == 0) && !@storage.working?
+      #     debug("no connections, exiting")
+      #     EM::stop_event_loop()
+      #   end
+      # end
       
       EM::error_handler do |err|
         if err.is_a?(AssertionFailed)
@@ -137,24 +153,17 @@ class SiteDownloader
     return ret
   end
   
+  HISTORY_FILE_PATH = 'history.txt'.freeze
+  
   # load already downloaded pictures from disk
   def load_history
-    path= File.join(@base_path, "history.txt" )
-    if File.exists?(path)
-      File.open(path, "r") do |f|
-        f.each_line do |line|
-          @history<< line.strip
-        end
-      end
+    if @storage.exist?(HISTORY_FILE_PATH)
+      @history = @storage.read(HISTORY_FILE_PATH).split('\n')
     end
   end
   
   def save_history
-    File.open( File.join(@base_path, "history.txt" ), "w") do |f|
-      @history.each do |url|
-        f.puts(url)
-      end
-    end
+    @storage.write(HISTORY_FILE_PATH, @history.join("\n"))
   end
 
 
@@ -290,6 +299,6 @@ class SiteDownloader
   
   def get_file_destpath_from_action(action)
     url_folder = action.uri.path
-    File.join(@base_path, action.destination_folder, url_folder)
+    File.join(action.destination_folder, url_folder)
   end
 end
