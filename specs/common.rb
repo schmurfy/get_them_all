@@ -1,7 +1,8 @@
 
 require 'bundler/setup'
 
-require File.expand_path('../../lib/init', __FILE__)
+$LOAD_PATH.unshift( File.expand_path('../../lib', __FILE__) )
+require "get_them_all"
 
 require 'bacon'
 require 'mocha'

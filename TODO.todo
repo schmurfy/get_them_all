@@ -1,0 +1,11 @@
+
+- improve logging
+- add more documentation
+- replace hpricot with nokogiri ?
+  hpricot may be more capable when parsing invalid html.
+
+known issues:
+- cookies passing (authentication)
+- activesupport notification system is nice but... global to 
+  the running application, so every crawler will have the same extensions
+

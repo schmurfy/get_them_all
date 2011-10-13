@@ -1,4 +1,4 @@
-data/
-log/
-sites/
-config.yml
+*.gem
+.bundle
+Gemfile.lock
+pkg/*

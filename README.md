@@ -17,8 +17,8 @@ I simply never found any tool fulfilling my needs so I made mine ;)
 
 First let's start by what is currently supported:
 
-- authentication
-- the referer is passed from one page to another so any leeched detection
+- authentication (partially by hand)
+- the referer is passed from one page to another so any leecher detection
   by referer will fail
 - cookies are passed too
 - parallel download, you decide how many parallel tasks are executed
@@ -26,15 +26,19 @@ First let's start by what is currently supported:
 - multiple storage backend, currently the files can be saved in:
   - local disk
   - dropbox
+- javascript parsing with therubyracer, yes you read that well,
+  if you are crawling a javascript powered site and need to read javascript
+  you can use this to extract the informations you need.
 
-Any website is considered as a pytamid, let's take a gallery website as an example:
+Any website is considered as a reversed pyramid, let's take a gallery website as an example:
 
 - the first level would be the page containing all the thumbnails
-- the second level would be a page showing the picture
+- the second level would be a page showing the picture (each link collected in level 0
+  will lead to a different page on level 2)
 - the third level would be the link to the picture itself
 
 I decided on this model after some testing and until now I never found a
-website where this cannot be applied
+website where this cannot be applied (a website with fiels to download)
 
 
 # Current state
@@ -47,68 +51,27 @@ the web server really has trouble keeping connections alive to serve the clients
 
 # Usage
 
-The application looks for recipes in the sites folder, a simple recipe looks like:
-(I took a useless ad loaded website so it will not hurt anyone)
+Look at the examples folder, there is two way of using this gem:
 
-```ruby
-#
-# example recipe
-#
-class WallpapersDownloader < SiteDownloader
-  
-  def initialize(args)
-    args.merge!(:base_url => "http://wallpapers.diq.com/", :folder_name => "walpapers_ru")
-    super(args) do
-      # Here you need to tell the engine what are your level 0 urls
-      # this can be as many url as you want
-      examine_url("/wp/30.html", 0, "images")
-    end
-  end
-  
-  # This method will be called by the engine each time an "examine"
-  # action is executed, you are responsible for telling it what
-  # to do next.
-  #
-  def examine_page(doc, level, action)
-    ret= []
-    case level
-      
-      when 0 # first level: thumbnails list
-      
-        # You need to find a css expressions matching all the links,
-        # this can be done in one or mote searches.
-        #
-        doc.search('td[@valign="top"][@height="102"] a') do |el|
-          unless el.search('img[@width="128"][@height="96"][@border="0"]').empty?
-            # We found an interesting link, each examine action created will
-            # have its level just above the current one, in this
-            # case it will be a level 1 action.
-            #
-            ret << ExamineAction.new(self, :url => el.attributes['href'])
-          end
-        end
-        
-        # The assert instruction is provided to ensure the recipe is still valid.
-        # The idea is that if an assert fails you need to update your css expressions
-        # since the website probably changed.
-        #
-        assert(ret.size <= 15, "too many entries: #{ret.size}")
-        assert(ret.size > 0, "cannot be empty: #{ret.size}")
-      
-      when 1 # second level: the picture page
-        
-        # like above we need a css expression to isolate the link but
-        # this time this is the picture url
-        #
-        doc.search('td[@valign="top"][@height="390"] img[@width="512"][@height="384"]') do |el|
-          ret << DownloadAction.new(self, :url => el.attributes['src'])
-        end
+As an application, try running:
 
-        assert(ret.size == 1, "should contain one picture")
-    end
-      
-    ret
-  end
-    
-end
+```bash
+./bin/gta exec examples/wallpaper -s data
 ```
+
+Or as a library, try this:
+
+```bash
+ruby examples/standalone.rb
+```
+
+
+
+# Disclaimer
+
+As with most open source projects you are responsible for your actions, if you start
+a crawler with a lot of parallel tasks and manage to get banned for your favorite
+wallpaper site I have nothing to do with this ok ?  
+Don't be stupid and everything will be fine, for my needs I rarely need more than 
+2 examiners and 1/2 downloaders.
+

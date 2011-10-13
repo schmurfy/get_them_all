@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+require "rubygems"
+
+$LOAD_PATH.unshift( File.expand_path('../../lib', __FILE__) )
+require "get_them_all"
+require "thor"
+
+
+class GtaRunner < Thor
+  
+  desc "exec [-s <path>] <script_path>", "run a user script"
+  method_option :storage_path,        :aliases => '-s', :desc => "path where the data will be saved"
+  def exec(script_path)    
+    
+    storage_path = options[:storage_path]
+    raise("storage_path required") unless storage_path
+    
+    if storage_path[0,1] != '/'
+      # relative path
+      storage_path = File.join(Dir.pwd, storage_path)
+    end
+    
+    if script_path[0,1] != '/'
+      script_path = File.join(Dir.pwd, script_path)
+    end
+
+    # the file exist, load it
+    require script_path
+
+    # check that the class exist
+    class_name = File.basename(script_path, ".rb").camelize + "Downloader"
+    fail("file #{script_path} should define class #{class_name} !") unless Object.const_defined?( class_name.to_sym )
+
+    info("Started with config file #{File.basename(script_path)}")
+    
+    # CTRL+C
+    trap("INT") do
+      EM::stop_event_loop()
+    end
+    
+    # create the instance (and start download)
+    class_name.constantize.new(
+        :storage => {
+            :type => 'file',
+            :params => {
+                :root => storage_path
+              }
+          },
+        :extensions => [GetThemAll::ActionLogger.new]
+      ).start()
+  end
+end
+
+GtaRunner.start
