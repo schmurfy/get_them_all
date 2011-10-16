@@ -4,28 +4,23 @@ require 'girl_friday'
 
 module GetThemAll
   class DropboxStorage < Storage
-  
-  
-    # def self.deserialize(data)
-    #   consumer_key, consumer_secret, authorized, token, token_secret, ssl, mode = YAML.load(StringIO.new(data))
-    #   raise ArgumentError, "Must provide a properly serialized #{self.to_s} instance" unless [ consumer_key, consumer_secret, token, token_secret ].all? and authorized == true or authorized == false
+    
+    ##
+    # Constructor
     # 
-    #   session = self.new(consumer_key, consumer_secret, :ssl => ssl, :already_authorized => authorized)
-    #   if authorized then
-    #     session.set_access_token token, token_secret
-    #   else
-    #     session.set_request_token token, token_secret
-    #   end
-    #   session.mode = mode if mode
+    # @param [Hash] options options
+    # @option options [Array] :session The session array
+    # @option options [Integer] :timeout The timeout for
+    #   dropbox requests.
     # 
-    #   return session
-    # end
-  
     def initialize(options = {})
       super
     
       session_data = options.delete(:session)
       raise "session missing" unless session_data
+      
+      # default to 30s timeout
+      @timeout = options.delete(:timeout) || 30
     
       consumer_key, consumer_secret, authorized, token, token_secret, ssl, mode = session_data
     
@@ -80,12 +75,14 @@ module GetThemAll
       if delay
         @queue.push(:path => path, :data => data, :deferrable => deferrable)
       else
+        deferrable.timeout(@timeout)
+        
         destpath = build_destpath(path)
         filename, dirname = File.basename(destpath), File.dirname(destpath)
         @session.upload(StringIO.new(data), dirname, :as => filename)
         EM::next_tick{ deferrable.succeed }
       end
-    
+      
       deferrable
     rescue => err
       if retries < 4
