@@ -118,7 +118,11 @@ module GetThemAll
       EM::run do
         @exit_timer = EM::add_periodic_timer(2) do
           # if all workers are idle
-          if @examiners.all?(&:idle?) && @downloaders.all?(&:idle?)
+          # and there is nothing in queue
+          # then stop the engine
+          # 
+          if @examiners.all?(&:idle?) && @downloaders.all?(&:idle?) &&
+             @examine_queue.empty? && @download_queue.empty?
             self.stop()
           end
         end
