@@ -7,7 +7,7 @@ module GetThemAll
   
     include EM::Deferrable
   
-    def initialize(downloader, h, params = {})
+    def initialize(downloader, h = {}, params = {})
       @downloader = downloader
     
       @storage = @downloader.storage

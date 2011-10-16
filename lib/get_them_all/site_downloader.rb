@@ -1,4 +1,6 @@
 
+require 'fiber'
+
 require 'addressable/uri'
 require 'active_support/hash_with_indifferent_access'
 
@@ -105,10 +107,10 @@ module GetThemAll
       notify('downloader.started', self)
     
       EM::run do
-        EM::add_periodic_timer(5) do
-          if (EM::connection_count() == 0) && !@storage.working?
-            debug("no connections, exiting")
-            EM::stop_event_loop()
+        @exit_timer = EM::add_periodic_timer(2) do
+          # if all workers are idle
+          if @examiners.all?(&:idle?) && @downloaders.all?(&:idle?)
+            self.stop()
           end
         end
       
@@ -140,19 +142,65 @@ module GetThemAll
         # priority for examine actions, this is done this way
         # to give work to the download workers asap.
         # 
+        
+        @examiners = []
+        @downloaders = []
+        
         1.upto(self.class.examiners_count) do |n|
-          Worker.new(:examiner, n - 1, self, @examine_queue)
+          @examiners << Worker.new(:examiner, n - 1, @examine_queue)
         end
       
         1.upto(self.class.downloaders_count) do |n|
-          Worker.new(:downloader, n - 1, self, @download_queue)
+          @downloaders << Worker.new(:downloader, n - 1, @download_queue)
         end
 
       end
-   
-      save_history()
-    
+      
       notify('downloader.completed', self)
+    end
+    
+    ##
+    # Cleanly stop the engine and ensure the history file is
+    # written.
+    # 
+    def stop
+      return if @stopping
+      
+      # first stop the exit timer, no longer needed once we are here
+      @exit_timer.cancel()
+      @stopping = true
+      
+      Fiber.new do
+        fiber = Fiber.current
+      
+        notify('downloader.stopping', self)
+      
+        # first ask every workers to stop their work
+        # starting with examiners
+        @examiners.each do |worker|
+          debug "Stopping Examiner #{worker.index}..."
+          worker.request_stop { fiber.resume }
+          Fiber.yield
+          debug "Stopped Examiner #{worker.index}"
+        end
+      
+        @downloaders.each do |worker|
+          debug "Stopping Downloader #{worker.index}..."
+          worker.request_stop { fiber.resume }
+          Fiber.yield
+          debug "Stopped Downloader #{worker.index}"
+        end
+        
+        # now that every worker is stopped, write the history
+        deferrable = save_history()
+        deferrable.callback{ fiber.resume }
+        Fiber.yield
+        
+        notify('downloader.stopped', self)
+        
+        # and stop the reactor
+        EM::stop_event_loop()
+      end.resume
     end
     
     class AssertionFailed < RuntimeError; end

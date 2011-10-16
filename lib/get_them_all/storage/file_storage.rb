@@ -18,8 +18,11 @@ module GetThemAll
       open(destpath, "wb") do |f|
         f.write( data )
       end
-    
-      deferrable.succeed
+      
+      # allow time to caller to schedule
+      # callbacks on the deferrable
+      
+      EM::next_tick{ deferrable.succeed }
       deferrable
     
     rescue Errno::EINVAL

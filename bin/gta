@@ -32,14 +32,9 @@ class GtaRunner < Thor
     fail("file #{script_path} should define class #{class_name} !") unless Object.const_defined?( class_name.to_sym )
 
     info("Started with config file #{File.basename(script_path)}")
-    
-    # CTRL+C
-    trap("INT") do
-      EM::stop_event_loop()
-    end
-    
+        
     # create the instance (and start download)
-    class_name.constantize.new(
+    crawler = class_name.constantize.new(
         :storage => {
             :type => 'file',
             :params => {
@@ -47,7 +42,14 @@ class GtaRunner < Thor
               }
           },
         :extensions => [GetThemAll::ActionLogger.new]
-      ).start()
+      )
+    
+    # CTRL+C
+    trap("INT") do
+      crawler.stop()
+    end    
+    
+    crawler.start()
   end
 end
 
