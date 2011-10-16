@@ -46,6 +46,11 @@ module GetThemAll
     attr_reader :base_url, :storage, :history
     
     ##
+    # If true a new filename will be generated for every file
+    # for which the destination already exists
+    attr_reader :rename_duplicates
+    
+    ##
     # Create and start the crawler.
     # 
     # @param [Hash] args arguments
@@ -56,6 +61,8 @@ module GetThemAll
     # @option args [String] :folder_name The root path where
     #   downloaded files will be saved (appended to the storage root).
     # @option args [Array] :extensions Array of Extension object.
+    # @option args [Boolean] :rename_duplicates If true a new name will be
+    #   generated if the file exists.
     # 
     # @option args [Hash] :storage Configure storage backend
     #   :type is the backend name
@@ -73,6 +80,7 @@ module GetThemAll
       @start_url = args.delete(:start_url) || '/'
       @folder_name= args.delete(:folder_name)
       @login_request = args.delete(:login_request)
+      @rename_duplicates = args.delete(:rename_duplicates)
       
       # keep a pointer to each extension
       @extensions = args.delete(:extensions) || [ActionLogger]

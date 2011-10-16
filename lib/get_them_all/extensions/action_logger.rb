@@ -67,6 +67,11 @@ module GetThemAll
         log("File downloaded: #{destpath}")
       end
       
+      register_handler('action.download.already_exists') do |name, worker, action, destpath|
+        @download_files += 1
+        log("oo File already exists: #{destpath}")
+      end
+      
     end
   
     def log(str)

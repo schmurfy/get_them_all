@@ -51,6 +51,8 @@ module GetThemAll
       register_handler('action.download.success', &method(:work_completed))
       register_handler('action.download.failure', &method(:work_failed))
       register_handler('action.download.skipped', &method(:work_skipped))
+      register_handler('action.download.already_exists', &method(:work_skipped))
+      
     end
   
 

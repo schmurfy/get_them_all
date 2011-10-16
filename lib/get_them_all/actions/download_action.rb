@@ -14,20 +14,43 @@ module GetThemAll
     
         req = @downloader.open_url(@url, "GET", nil, @referer)
         req.callback do |req|
-      
-          destpath = compute_filename(worker)
-          download = @storage.write(destpath, req.response)
-      
-          download.callback do      
+          
+          destpath= @downloader.get_file_destpath_from_action(self)
+          
+          file_exists = @storage.exist?(destpath)
+          
+          # if the destination path does not already exists
+          # or if it does exists but we were asked to rename
+          # the file.
+          # 
+          if !file_exists || @downloader.rename_duplicates
+            
+            if file_exists
+              destpath = compute_unique_filename(destpath)
+              notify('action.download.renamed', worker, self, destpath)
+            end
+            
+            download = @storage.write(destpath, req.response)
+
+            download.callback do      
+              add_to_history()
+              set_deferred_status(:succeeded)
+
+              notify('action.download.success', worker, self, destpath)
+            end
+
+            download.errback do
+              notify('action.download.failure', worker, self)
+            end
+            
+          else
+            # if we arrive here the destination exists
+            # and we don't want to rename it
             add_to_history()
             set_deferred_status(:succeeded)
-      
-            notify('action.download.success', worker, self, destpath)
+            notify('action.download.already_exists', worker, self, destpath)
           end
-      
-          download.errback do
-            notify('action.download.failure', worker, self)
-          end      
+          
         end
     
         req.timeout(5)
@@ -63,16 +86,13 @@ module GetThemAll
       end
     end
   
-    def compute_filename(worker)
-      destpath= @downloader.get_file_destpath_from_action(self)
-        
+    def compute_unique_filename(destpath)
       # find an unused filename
-      while @storage.exist?(destpath)        
+      begin
         path, filename= File.dirname(destpath), File.basename(destpath).split(".")
         filename= "#{filename[0]}_#{random_string(2)}.#{filename[1]}"
         destpath= File.join(path, filename)
-        notify('action.download.renamed', worker, self, destpath)
-      end
+      end while @storage.exist?(destpath)
     
       destpath
     end
