@@ -26,8 +26,9 @@ crawler = WallpaperDownloader.new(
 
 # CTRL+C
 trap("INT") do
-  crawler.stop()
+  crawler.stop do
+    EM::stop_event_loop()
+  end
 end
 
 crawler.start()
-

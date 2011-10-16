@@ -194,7 +194,7 @@ module GetThemAll
     # Cleanly stop the engine and ensure the history file is
     # written.
     # 
-    def stop
+    def stop(&block)
       return if @stopping
       
       # first stop the exit timer, no longer needed once we are here
@@ -229,9 +229,9 @@ module GetThemAll
         
         notify('downloader.stopped', self)
         
-        # and stop the reactor
-        EM::stop_event_loop()
+        block.call if block
       end.resume
+      
     end
     
     class AssertionFailed < RuntimeError; end

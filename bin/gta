@@ -49,7 +49,10 @@ class GtaRunner < Thor
       crawler.stop()
     end    
     
-    crawler.start()
+    deferrable = crawler.start()
+    deferrable.callback do
+      EM::stop_event_loop()
+    end
   end
 end
 
