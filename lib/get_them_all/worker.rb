@@ -7,10 +7,28 @@ module GetThemAll
     include Notifier
     
     attr_reader :type, :index
-  
-    def initialize(type, index, queue)
+    
+    ##
+    # Create a worker.
+    # 
+    # @param [StringSymbol] type Name assigned to the worker
+    #   the only real use is to identify the worker.
+    # @param [Integer] index additional way to indetify the worker.
+    # @param [EM::Queue] queue the queue from which this worker
+    #   will take its jobs.
+    # @param [Integer,Array] delay Number of milliseconds between two
+    #   actions, if an array is provided the value will be randomized
+    #   between the two first values in the array.
+    # 
+    def initialize(type, index, queue, delay = 0)
       @type = type
       @index = index
+      @delay = delay
+      
+      # ensure delay is valid
+      unless @delay.is_a?(Integer) || (@delay.is_a?(Array) && @delay.size >= 2)
+        raise "invalid value for delay: #{@delay}"
+      end
     
       @queue = queue
       @idle = true
@@ -62,7 +80,8 @@ module GetThemAll
         @stop_requested_block.call if @stop_requested_block
         notify('worker.stopped', self)
       else
-        EM::next_tick do
+        delay = delay_before_next_action()
+        EM::add_timer(delay / 1000) do
           @queue.pop do |act|
             handle_action(act)
           end
@@ -95,6 +114,22 @@ module GetThemAll
     
     def action_succeeded
       take_next_job()
+    end
+    
+    
+    ##
+    # Compute the delay before the next action can
+    # take place.
+    # 
+    # @return [Integer] Number of milliseconds to wait
+    # 
+    def delay_before_next_action
+      case @delay
+      when Integer then  @delay
+      when Array  then  rand(@delay[1] - @delay[0]) + @delay[0]
+      else
+        0
+      end
     end
     
   end

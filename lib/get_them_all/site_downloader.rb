@@ -16,9 +16,20 @@ module GetThemAll
   class SiteDownloader
     include Notifier
     
+    # number of worker for each tasks
     class_attribute :examiners_count, :downloaders_count
-    class_attribute :config
-  
+    
+    # delay between each action for one worker
+    class_attribute :examiners_delay, :downloaders_delay
+    
+    
+    self.examiners_count = 1
+    self.downloaders_count = 1
+    
+    # default: 100 to 200ms between actions
+    self.downloaders_delay = [100, 200]
+    self.examiners_delay = [100, 200]
+    
     ##
     # Determine what will be stored in the history file,
     # the default is to store the last url before the download
@@ -29,9 +40,6 @@ module GetThemAll
     # the default should work better most of the time.
     # 
     class_attribute :history_tracking
-  
-    self.examiners_count = 1
-    self.downloaders_count = 1
   
     self.history_tracking = :default
   
