@@ -72,6 +72,7 @@ module GetThemAll
       @base_url= args.delete(:base_url)
       @start_url = args.delete(:start_url) || '/'
       @folder_name= args.delete(:folder_name)
+      @login_request = args.delete(:login_request)
       
       # keep a pointer to each extension
       @extensions = args.delete(:extensions) || [ActionLogger]
@@ -132,39 +133,49 @@ module GetThemAll
             end
           end
         end
-     
         
-        # queue the first action to start crawling
-        #  
-        @examine_queue.push(ExamineAction.new(self,
-            :url => @start_url,
-            :destination_folder => '/',
-            :level => 0,
-          ), 0)
-        
-      
-        # now that actions are queued, start handling them
-        # start each "worker"
-        # dequeuing is priority based, the download actions
-        # first and then the higher the level the higher the
-        # priority for examine actions, this is done this way
-        # to give work to the download workers asap.
-        # 
-        
-        @examiners = []
-        @downloaders = []
-        
-        1.upto(self.class.examiners_count) do |n|
-          @examiners << Worker.new(:examiner, n - 1, @examine_queue)
+        # authenticate connection if required
+        if @login_request
+          open_url(*@login_request) do |req, doc|
+            after_login()
+          end
+        else
+          after_login()
         end
-      
-        1.upto(self.class.downloaders_count) do |n|
-          @downloaders << Worker.new(:downloader, n - 1, @download_queue)
-        end
-
+        
       end
       
       notify('downloader.completed', self)
+    end
+    
+    def after_login
+      # queue the first action to start crawling
+      #  
+      @examine_queue.push(ExamineAction.new(self,
+          :url => @start_url,
+          :destination_folder => '/',
+          :level => 0,
+        ), 0)
+      
+    
+      # now that actions are queued, start handling them
+      # start each "worker"
+      # dequeuing is priority based, the download actions
+      # first and then the higher the level the higher the
+      # priority for examine actions, this is done this way
+      # to give work to the download workers asap.
+      # 
+      
+      @examiners = []
+      @downloaders = []
+      
+      1.upto(self.class.examiners_count) do |n|
+        @examiners << Worker.new(:examiner, n - 1, @examine_queue, self.class.examiners_delay)
+      end
+    
+      1.upto(self.class.downloaders_count) do |n|
+        @downloaders << Worker.new(:downloader, n - 1, @download_queue, self.class.downloaders_delay)
+      end
     end
     
     ##
