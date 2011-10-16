@@ -2,24 +2,25 @@ require File.expand_path('../../common', __FILE__)
 
 describe 'Action' do
   before do
-    @downloader = stub('Downloader')
+    @storage = stub('Storage')
+    @downloader = stub('Downloader', :storage => @storage)
     @gzipped_hello = "\u001F\x8B\b\u0000^\u007F\x90N\u0000\u0003\xF3H\xCD\xC9\xC9\a\u0000\x82\x89\xD1\xF7\u0005\u0000\u0000\u0000"
   end
   
   should 'accept valid constructor parameters' do
-    action = Action.new(@downloader, :destination_folder => '/tmp')
+    action = GetThemAll::Action.new(@downloader, :destination_folder => '/tmp')
     action.destination_folder.should == '/tmp'
   end
   
   should 'raise an error on unknown constructor parameter' do
     proc{
-      Action.new(@downloader, :unknown => 42)
+      GetThemAll::Action.new(@downloader, :unknown => 42)
     }.should.raise(RuntimeError)
   end
   
   describe 'with an exsiting action' do
     before do
-      @action = Action.new(@downloader, :destination_folder => '/tmp')
+      @action = GetThemAll::Action.new(@downloader, :destination_folder => '/tmp')
     end
     
     # it "can decompress gzipped data" do

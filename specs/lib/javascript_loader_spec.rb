@@ -7,7 +7,7 @@ describe 'JavascriptLoader' do
   
   should 'load real javascript script' do
     @source.gsub!("var data", "data")
-    loader = JavascriptLoader.new(@source)
+    loader = GetThemAll::JavascriptLoader.new(@source)
     loader.eval('data.meta.dir').should == 'manga/a/angelyardchapter2_e/'
   end
   
