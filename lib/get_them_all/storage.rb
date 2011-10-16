@@ -23,5 +23,13 @@ module GetThemAll
       File.join(@root, path)
     end
   
+  private
+    def show_error(err)
+      error(err.inspect)
+      err.backtrace.each do |line|
+        error(line)
+      end
+    end
+    
   end
 end

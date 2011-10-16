@@ -60,7 +60,11 @@ module GetThemAll
       else
         true
       end
+      
     rescue Dropbox::FileNotFoundError
+      false
+    rescue => err
+      show_error(err)
       false
     end
   
@@ -85,6 +89,7 @@ module GetThemAll
       
       deferrable
     rescue => err
+      show_error(err)
       if retries < 4
         # puts "[#{retries}] Upload error, retrying: #{err}"
         retries += 1
@@ -104,6 +109,7 @@ module GetThemAll
       destpath = build_destpath(path)
       @session.download(destpath)
     rescue => err
+      show_error(err)
       raise ReadError, "cannot read file: #{err}"
     end
   
