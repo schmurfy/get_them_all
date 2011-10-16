@@ -1,6 +1,20 @@
 
 require 'bundler/setup'
 
+if (RUBY_VERSION >= "1.9") && ENV['COVERAGE']
+  require 'simplecov'
+  ROOT = File.expand_path('../../lib/get_them_all', __FILE__)
+  
+  puts "[[  SimpleCov enabled  ]]"
+  
+  SimpleCov.start do    
+    add_filter '/specs'
+    
+    root(ROOT)
+  end
+end
+
+
 $LOAD_PATH.unshift( File.expand_path('../../lib', __FILE__) )
 require "get_them_all"
 
