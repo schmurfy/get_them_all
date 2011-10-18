@@ -43,7 +43,7 @@ module GetThemAll
   
     self.history_tracking = :default
   
-    attr_reader :base_url, :storage, :history
+    attr_reader :base_url, :storage, :history, :state
     
     ##
     # If true a new filename will be generated for every file
@@ -75,6 +75,8 @@ module GetThemAll
       @examine_queue = EM::PriorityQueue.new
       @download_queue = EM::PriorityQueue.new
       @history = History.new
+      
+      @state = :stopped
       
       @base_url= args.delete(:base_url)
       @start_url = args.delete(:start_url) || '/'
@@ -112,6 +114,18 @@ module GetThemAll
       end
       
     end
+    
+    def stopping?
+      @state == :stopping
+    end
+    
+    def running?
+      @state == :running
+    end
+    
+    def stopped?
+      @state == :stopped
+    end
   
     ##
     # Start the crawler, if you pass a block it
@@ -120,7 +134,8 @@ module GetThemAll
     # 
     def start
       load_history()
-    
+      @state = :running
+      
       notify('downloader.started', self)
     
       EM::run do
@@ -190,16 +205,17 @@ module GetThemAll
       end
     end
     
+    
     ##
     # Cleanly stop the engine and ensure the history file is
     # written.
     # 
     def stop(&block)
-      return if @stopping
+      return if stopping?
       
       # first stop the exit timer, no longer needed once we are here
       @exit_timer.cancel()
-      @stopping = true
+      @state = :stopping
       
       Fiber.new do
         fiber = Fiber.current
@@ -228,6 +244,7 @@ module GetThemAll
         Fiber.yield
         
         notify('downloader.stopped', self)
+        @state = :stopped
         
         block.call if block
       end.resume
