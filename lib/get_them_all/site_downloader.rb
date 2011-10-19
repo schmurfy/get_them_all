@@ -243,8 +243,8 @@ module GetThemAll
         deferrable.callback{ fiber.resume }
         Fiber.yield
         
-        notify('downloader.stopped', self)
         @state = :stopped
+        notify('downloader.stopped', self)
         
         block.call if block
       end.resume
