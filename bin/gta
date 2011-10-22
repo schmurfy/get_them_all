@@ -8,6 +8,21 @@ require "thor"
 
 class GtaRunner < Thor
   
+  desc "dropbox_session", "create a session for dropbox storage"
+  def dropbox_session
+    
+    key = ask("Enter your key:")
+    secret = ask("Enter your secret:")
+    
+    # STEP 1: Authorize the user
+    session = Dropbox::Session.new(key, secret)
+    session.mode = :dropbox
+    ask("Visit #{session.authorize_url} to log in to Dropbox. Hit enter when you have done this.")
+    session.authorize
+    
+    puts session.serialize
+  end
+  
   desc "exec [-s <path>] <script_path>", "run a user script"
   method_option :storage_path,        :aliases => '-s', :desc => "path where the data will be saved"
   def exec(script_path)    
