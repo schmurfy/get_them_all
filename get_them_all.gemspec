@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'hpricot',            '~> 0.8.1'
   s.add_runtime_dependency 'i18n'
   s.add_runtime_dependency 'activesupport',      '~> 3.1.0'
-  s.add_runtime_dependency 'therubyracer',       '~> 0.9.8'
+  # s.add_runtime_dependency 'therubyracer',       '~> 0.9.8'
   s.add_runtime_dependency 'dropbox'
   s.add_runtime_dependency 'girl_friday'
 end

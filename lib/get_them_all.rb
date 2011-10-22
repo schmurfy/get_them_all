@@ -18,8 +18,13 @@ Dir.chdir( File.join(File.dirname(__FILE__), "get_them_all") ) do
   
   # libraries
   require './notifier'
-  require './javascript_loader'
   require './history'
+  
+  begin
+    require './javascript_loader'
+  rescue LoadError => err
+    # therubyracer not available
+  end
   
   # Storage
   require './storage'
