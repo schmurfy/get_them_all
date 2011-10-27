@@ -21,12 +21,13 @@ module GetThemAll
       
       register_handler('downloader.stopped') do |name, downloader|
         log("Engine stopped")
-      end
-      
-      register_handler('downloader.completed') do |name, worker, downloader|
         log ""
         log "Downloaded #{@download_files} files"
         log "Skipped: #{@skipped_files}"
+      end
+      
+      register_handler('downloader.completed') do |name, worker, downloader|
+        log "Downloader exiting."
       end
       
       

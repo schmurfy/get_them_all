@@ -13,7 +13,8 @@ module GetThemAll
   # 
   class GraphBuilder < Extension
     class TreeNode
-      attr_reader :text, :children
+      attr_reader :children
+      attr_accessor :text, :prefix
 
       def initialize(prefix, text)
         @prefix = prefix
@@ -22,8 +23,17 @@ module GetThemAll
       end
 
       def add_child(prefix, text)
-        ret = TreeNode.new(prefix, text)
-        @children << ret
+        # check if another node with prefix ~ is registered
+        # and overwrite it
+        ret = @children.detect{|n| (n.prefix == '~') && (n.text == text) }
+        if ret
+          ret.prefix = prefix
+          ret.text = text
+        else
+          ret = TreeNode.new(prefix, text)
+          @children << ret
+        end
+        
         ret
       end
 
@@ -114,6 +124,14 @@ module GetThemAll
     
       register_handler('action.examine.success') do |name, worker, action, returned_actions|
         add_to_graph("E[ret:#{returned_actions.size}]", action.url, action.parent_url)
+      end
+      
+      register_handler('action.examine.started') do |name, worker, action|
+        add_to_graph("~", action.url, action.parent_url)
+      end
+      
+      register_handler('action.examine.skipped') do |name, worker, action|
+        add_to_graph("S", action.url, action.parent_url)
       end
     
       register_handler('action.examine.failure') do |name, worker, action, error_status|
