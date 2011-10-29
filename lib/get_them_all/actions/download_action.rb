@@ -58,9 +58,9 @@ module GetThemAll
         req.errback do |*args|
           status = (args.size == 1) ? args.first : 0
       
-          # remove file if created
-          path = compute_filename(worker)
-          File.delete(path) if File.exist?(path)
+          # # remove file if created
+          # path = compute_unique_filename(worker)
+          # File.delete(path) if File.exist?(path)
       
           notify('action.download.failure', worker, self)
       
