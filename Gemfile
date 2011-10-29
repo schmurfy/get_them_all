@@ -1,6 +1,8 @@
 
 source "http://rubygems.org"
 
+gem 'therubyracer'
+
 group(:test) do
   gem 'schmurfy-bacon', '~> 1.2'
   gem 'guard-bacon',    '~> 1.0.0'

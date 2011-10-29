@@ -79,7 +79,7 @@ module GetThemAll
       @state = :stopped
       
       @base_url= args.delete(:base_url)
-      @start_url = args.delete(:start_url) || '/'
+      @start_urls = args.delete(:start_urls) || ['/']
       @folder_name= args.delete(:folder_name)
       @login_request = args.delete(:login_request)
       @rename_duplicates = args.delete(:rename_duplicates)
@@ -105,7 +105,7 @@ module GetThemAll
       @parsed_base_url = Addressable::URI.parse(@base_url)
       
       # start_url is relative to base_url
-      @start_url = File.join(@base_url, @start_url)
+      @start_urls.map!{|path| File.join(@base_url, path) }
       
       # if any unknown option was passed, do not silently walk away
       # tell the user !
@@ -176,14 +176,15 @@ module GetThemAll
     end
     
     def after_login
-      # queue the first action to start crawling
-      #  
-      @examine_queue.push(ExamineAction.new(self,
-          :url => @start_url,
-          :destination_folder => '/',
-          :level => 0,
-        ), 0)
-      
+      @start_urls.each do |start_url|
+        # queue the first action to start crawling
+        #  
+        @examine_queue.push(ExamineAction.new(self,
+            :url => start_url,
+            :destination_folder => '/',
+            :level => 0
+          ), 0)
+      end
     
       # now that actions are queued, start handling them
       # start each "worker"
