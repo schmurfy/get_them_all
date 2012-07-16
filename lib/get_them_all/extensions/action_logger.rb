@@ -62,6 +62,10 @@ module GetThemAll
       register_handler('action.download.skipped') do |name, worker, action|
         log("url Skipped: #{action.url}")
       end
+      
+      register_handler('action.download.failure') do |name, worker, action|
+        log("Failed to download file: #{action.url} from: #{action.parent_url}")
+      end
     
       register_handler('action.download.success') do |name, worker, action, destpath|
         @download_files += 1
