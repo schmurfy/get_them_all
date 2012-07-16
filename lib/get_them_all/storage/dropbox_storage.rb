@@ -1,5 +1,4 @@
-require 'stringio'
-require 'dropbox'
+require 'dropbox-api'
 require 'girl_friday'
 
 module GetThemAll
@@ -15,18 +14,16 @@ module GetThemAll
     # 
     def initialize(options = {})
       super
-    
-      session_data = options.delete(:session)
-      raise "session missing" unless session_data
       
       # default to 30s timeout
       @timeout = options.delete(:timeout) || 30
-    
-      consumer_key, consumer_secret, authorized, token, token_secret, ssl, mode = session_data
-    
-      @session = Dropbox::Session.new(consumer_key, consumer_secret, :ssl => ssl, :already_authorized => authorized)
-      @session.set_access_token(token, token_secret)
-      @session.mode = mode.to_sym
+      
+      Dropbox::API::Config.app_key    = options.delete(:app_key)
+      Dropbox::API::Config.app_secret = options.delete(:app_secret)
+      @client = Dropbox::API::Client.new(
+          :token  => options.delete(:token),
+          :secret => options.delete(:secret)
+        )
     
       @queue = GirlFriday::WorkQueue.new(:dropbox_upload, :size => 1) do |msg|
         # puts "Uploading file #{msg[:path]}..."
@@ -54,14 +51,14 @@ module GetThemAll
     def exist?(path)
       destpath = build_destpath(path)
     
-      metadata = @session.metadata(destpath)
-      if metadata.respond_to?(:is_deleted) && metadata.is_deleted
+      f = @client.find(destpath)
+      if f.is_deleted
         false
       else
         true
       end
       
-    rescue Dropbox::FileNotFoundError
+    rescue Dropbox::API::Error::NotFound
       false
     rescue => err
       show_error(err)
@@ -80,10 +77,10 @@ module GetThemAll
         @queue.push(:path => path, :data => data, :deferrable => deferrable)
       else
         deferrable.timeout(@timeout)
-        
+
         destpath = build_destpath(path)
-        filename, dirname = File.basename(destpath), File.dirname(destpath)
-        @session.upload(StringIO.new(data), dirname, :as => filename)
+        @client.upload(destpath, data)
+        
         EM::next_tick{ deferrable.succeed }
       end
       
@@ -107,11 +104,20 @@ module GetThemAll
     # 
     def read(path)
       destpath = build_destpath(path)
-      @session.download(destpath)
+      @client.download(destpath)
     rescue => err
       show_error(err)
       raise ReadError, "cannot read file: #{err}"
     end
-  
+  private
+    def build_destpath(path)
+      ret = super
+      if ret[0] == '/'
+        ret[1..-1]
+      else
+        ret
+      end
+    end
+    
   end
 end
