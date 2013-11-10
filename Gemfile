@@ -1,7 +1,7 @@
 
 source "http://rubygems.org"
 
-gem 'therubyracer'
+# gem 'therubyracer'
 
 group(:test) do
   gem 'schmurfy-bacon', '~> 1.2'
