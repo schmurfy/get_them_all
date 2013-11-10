@@ -12,7 +12,7 @@ module GetThemAll
       def substr(*); ""; end
       def protocol; 'http'; end
     
-      def location; self; end
+      def location; ""; end
       def appendChild(*); self; end
       def createElement(*); self; end
       def window; self; end
@@ -21,6 +21,12 @@ module GetThemAll
     
       def ready(f)
         f.call()
+      end
+      
+      def html(*)
+      end
+      
+      def on(*)
       end
     
       def click(*); end
