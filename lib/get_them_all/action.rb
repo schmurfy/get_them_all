@@ -27,7 +27,7 @@ module GetThemAll
     end
   
     def uri
-      URI.parse(@url)
+      Addressable::URI.parse(@url)
     end
   
   
